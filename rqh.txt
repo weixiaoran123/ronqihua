@@ -1,0 +1,97 @@
+首先查看docker-compose版本
+在这里我所使用的版本为v2.27.1
+docker-compose --version
+如果版本较低，将docker-compose更新到最新版
+rm /usr/local/bin/docker-compose
+curl -L "https://github.com/docker/compose/releases/download/v2.27.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+chmod +x /usr/local/bin/docker-compose
+docker-compose --version
+首先创建一个目录django
+mkdir django
+将文件通过MobaXterm移动到django目录中
+然后进入项目目录
+cd django
+然后将文件解压
+unzip web_site.zip
+然后进入项目目录
+cd web_site
+mkdir mysql
+cd mysql
+cp /root/django/d_site_backup.sql .
+vim Dockerfile
+#
+FROM mysql:8.0
+COPY d_site_backup.sql /docker-entrypoint-initdb.d
+EXPOSE 3306
+#
+ls
+cd ..
+在项目目录创建Dockerfile文件
+创建yml文件（需要注意compose的版本）
+docker-compose.yml
+vim Dockerfile
+#
+FROM python:3.11-slim
+WORKDIR /app
+# 安装系统依赖
+RUN apt-get update && apt-get install -y --no-install-recommends \
+gcc \
+python3-dev \
+default-libmysqlclient-dev \
+pkg-config \
+libssl-dev \
+libmariadb-dev \
+netcat-openbsd \
+&& rm -rf /var/lib/apt/lists/* # 清理缓存必须在同一RUN中
+# 安装Python依赖
+COPY requirements.txt .
+RUN pip install --upgrade pip && \
+pip install -r requirements.txt
+# 复制项目代码
+COPY . .
+EXPOSE 8000
+CMD ["sh", "-c", "sleep 60s && python manage.py migrate && python manage.py
+runserver 0.0.0.0:8000"]
+#
+services:
+my_mysql:
+build: mysql/.
+container_name: my_mysql
+environment:
+MYSQL_DATABASE: d_site
+MYSQL_ROOT_PASSWORD: root
+volumes:
+- mysql_data:/var/lib/mysql
+ports:
+- "3306:3306"
+networks:
+- django_network
+mydjango:
+build: .
+执行命令（预计11分钟）
+进入mysql容器
+mysql 权限root远程登录
+container_name: mydjango
+ports:
+- "8000:8000"
+networks:
+- django_network
+volumes:
+-
+/root/django/web_site/web_site/settings.py:/root/django/web_site/web_site/settin
+gs.py
+depends_on:
+- my_mysql
+networks: # 顶层级键，无缩进
+django_network:
+driver: bridge
+volumes: # 顶层级键，无缩进
+mysql_data: # 正确声明卷
+docker compose up -d
+docker exec -it my_mysql bash
+mysql -uroot -p
+root
+ALTER USER 'root'@'%' IDENTIFIED WITH mysql_native_password BY 'root';
+FLUSH PRIVILEGES;
+exit;
+exit;
